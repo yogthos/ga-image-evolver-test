@@ -2,7 +2,7 @@
   (:require (ga [main :as ga])
   					(ga [image-util :as img]))  
 	(:import
-  	(java.awt Color Canvas Polygon) 	  
+  	(java.awt Color Canvas Polygon RenderingHints) 	  
 	  (java.io File)	  
 	  (javax.swing JFrame JPanel JFileChooser)))
 
@@ -23,7 +23,7 @@
 (defn gen-polygon [w h]
 	(let [color (img/get-random-color)
 			  p (Polygon.)]
-			(dotimes [i (rand-in-range 2 5)]
+			(dotimes [i (rand-in-range 3 5)]
 				(let [x-pos (rand-int w)
 						  y-pos (rand-int h)]
 					 (.addPoint p x-pos y-pos)))
@@ -33,7 +33,8 @@
 	(let [image (img/get-blank-image width height)
 	      g     (.createGraphics image)]
 	  
-	  (doto g
+	  (doto g	  		
+	  		(.setRenderingHint RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
 				(.setColor Color/black)
 				(.fillRect 0 0 width height))    
 		(doseq [polygon polygons]				

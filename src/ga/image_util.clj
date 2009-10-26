@@ -3,7 +3,7 @@
     (java.awt Canvas Graphics Dimension Color Polygon GraphicsEnvironment Transparency Toolkit)
     (java.awt.image BufferStrategy BufferedImage PixelGrabber WritableRaster)
     (javax.media.jai.iterator RandomIterFactory)
-    (java.awt AlphaComposite Polygon)
+    (java.awt AlphaComposite Polygon RenderingHints)
     (javax.imageio ImageIO)
     (java.awt.image.renderable ParameterBlock))
 	(:gen-class))
@@ -154,6 +154,7 @@
 					(try	
 						(doto g
 							(.setComposite ac)
+							(.setRenderingHint RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
 							(.drawImage image nil 0 0))
 							(finally (.dispose g)))
 					new-image))
