@@ -60,12 +60,10 @@
     (let [w (:width img)
           h (:height img)
           polys (:polygons img)
-          size (count polys)]                               
-        (loop [new-polys (transient []), pos 0]
-          (if (= pos size)
-            (struct image w h (persistent! new-polys))
-            (recur (assoc! new-polys pos (if (< (rand) threshold) (gen-polygon w h) (get polys pos)))
-                   (inc pos))))))
+          size (count polys)] 
+          (struct image w h
+	          (persistent! (reduce #(conj! %1 (if (< (rand) threshold) (gen-polygon w h) %2))                               
+  	        	(transient []) (:polygons img))))))
   ([w h member-size]
     (struct image w h
       (vec (for [i (range 0 member-size)] (gen-polygon w h))))))  
@@ -82,7 +80,7 @@
         image (img/load-image (.getSelectedFile file-chooser))       
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 100
+        pop-size 50
         member-size 500
         width (* 15 image-width)
         height (.getHeight image)
