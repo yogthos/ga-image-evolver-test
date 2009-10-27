@@ -64,7 +64,7 @@
         (loop [new-polys (transient []), pos 0]
           (if (= pos size)
             (struct image w h (persistent! new-polys))
-            (recur (assoc! new-polys pos (if (< (rand) threshold) (get polys pos) (gen-polygon w h)))
+            (recur (assoc! new-polys pos (if (< (rand) threshold) (gen-polygon w h) (get polys pos)))
                    (inc pos))))))
   ([w h member-size]
     (struct image w h
@@ -83,7 +83,7 @@
         ;image1 (img/load-image (java.io.File. "evileye.jpg"))          
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 50
+        pop-size 100
         member-size 500
         width (* 15 image-width)
         height (.getHeight image)
