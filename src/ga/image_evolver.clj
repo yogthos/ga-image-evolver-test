@@ -26,6 +26,7 @@
 			(dotimes [i (rand-in-range 3 5)]
 				(let [x-pos (rand-int w)
 						  y-pos (rand-int h)]
+						  (println x-pos "," y-pos)
 					 (.addPoint p x-pos y-pos)))
   	  (struct polygon color p)))	   							
 		  								
@@ -47,25 +48,28 @@
 (defn image-mater [img1 img2]				
 	(let [polygons1 (:polygons img1)
 			  polygons2 (:polygons img2)
-			  polygons (concat (take (/ (count polygons1) 2) polygons1)
+			  polygons (into (into [] (take (/ (count polygons1) 2) polygons1))
 				 			   			   (drop (/ (count polygons2) 2) polygons2))]
-			(struct image (:width img1) (:height img1) (into-array polygons))))
+			(struct image (:width img1) (:height img1) polygons)))
 
 (defn image-fitness 	
 	[image target]
 		(- 0 (img/calc-distance (paint (:polygons image) (:width image) (:height image)) target)))
 
 (defn image-mutator 	
-	([image target threshold fitness]
-		(let [w (:width image)
-				  h (:height image)]						  									
-				(dotimes [i (count (:polygons image))]
-					(when (< (rand) threshold)									
-     			  (aset (:polygons image) i (gen-polygon w h))))
-     		image))
-  ([width height member-size]
-    (struct image width height (into-array (map (fn[_] (gen-polygon width height)) 
-							      														(range 0 member-size)))))) 	
+	([img target threshold fitness]
+		(let [w (:width img)
+				  h (:height img)
+				  polys (:polygons img)
+				  size (count polys)]						  									
+     		(loop [new-polys (transient []), pos 0]
+     			(if (= pos size)
+     				(struct image w h (persistent! new-polys))
+	     			(recur (assoc! new-polys pos (if (< (rand) threshold) (get polys pos) (gen-polygon w h)))
+	     						 (inc pos))))))
+  ([w h member-size]
+    (struct image w h
+    	(vec (for [i (range 0 member-size)] (gen-polygon w h)))))) 	
 
 (defn -main [args]  
 
@@ -80,8 +84,8 @@
         ;image1 (img/load-image (java.io.File. "evileye.jpg"))          
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 50
-        member-size 500
+        pop-size 30
+        member-size 100
         width (* 15 image-width)
         height (.getHeight image)
         mutator-struct (struct ga/mutator
@@ -106,12 +110,7 @@
          (.setVisible true)
          (.requestFocus))       
 			
-			
-			 ;(let [i1 (image-mutator image-width image-height member-size)
-			 ;			 i2 (image-mutator image-width image-height member-size)]
-			 ;		(img/draw canvas (paint (:polygons (image-mater i1 i2)) image-width image-height) 0 0))
-			
-       (loop [population (ga/init-population mutator-struct width height pop-size member-size)] 
+       (loop [population (ga/init-population mutator-struct image-width height pop-size member-size)] 
   	      (let [ranked (vec (ga/rank population mutator-struct))]  
   	      	(dotimes [i (if (> pop-size 15) 15 pop-size)]  	      	
   	      		(img/draw canvas 
