@@ -83,8 +83,8 @@
         ;image1 (img/load-image (java.io.File. "evileye.jpg"))          
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 30
-        member-size 100
+        pop-size 50
+        member-size 500
         width (* 15 image-width)
         height (.getHeight image)
         mutator-struct (struct ga/mutator
