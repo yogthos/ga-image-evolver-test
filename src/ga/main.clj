@@ -9,7 +9,7 @@
   "checks if population has any members which match the desired value"
   [population]
   (not (empty? (filter #(== (:fitness @%1) 0) population))))
-	
+  
 (defn- mutate
   "randomly mutates values in members of the population using the mutator function"
   [population mutator]
@@ -23,19 +23,19 @@
   "ranks the members of the population using the val-comp function and the target value"
   [population mutator]
   (let [target  (:target mutator)
-  			fitness (:fitness mutator)]
-	  (doseq [member population]
-  	  (swap! member #(assoc %1 :fitness (fitness (:value %1) target))))  	  
-	  (reverse (sort #(compare (:fitness @%1) (:fitness @%2)) population))))
+        fitness (:fitness mutator)]
+    (doseq [member population]
+      (swap! member #(assoc %1 :fitness (fitness (:value %1) target))))     
+    (reverse (sort #(compare (:fitness @%1) (:fitness @%2)) population))))
 
 
 (defn- mate
-	[members mutator]	
-	(let [size (count members)]
-				(for [i (range 0 size)]
-					(atom (struct member nil 
-						((:mater mutator) (:value @(get members (rand-int (dec size)))) 
-						 							    (:value @(get members (rand-int (dec size))))))))))
+  [members mutator] 
+  (let [size (count members)]
+        (for [i (range 0 size)]
+          (atom (struct member nil 
+            ((:mater mutator) (:value @(get members (rand-int (dec size)))) 
+                              (:value @(get members (rand-int (dec size))))))))))
 
 (defn evolve
   "mutates the populationtakes then combines the top members
@@ -53,6 +53,6 @@
 (defn init-population
   "creates a population using the generator function"
   [mutator width height pop-size member-size]  
-	  (for [i (range 0 pop-size)] 
-	  	(let [value ((:mutator mutator) width height member-size)]		
-			  (atom (struct member nil value)))))
+    (for [i (range 0 pop-size)] 
+      (let [value ((:mutator mutator) width height member-size)]    
+        (atom (struct member nil value)))))
