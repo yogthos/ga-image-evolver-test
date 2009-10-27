@@ -26,7 +26,6 @@
 			(dotimes [i (rand-in-range 3 5)]
 				(let [x-pos (rand-int w)
 						  y-pos (rand-int h)]
-						  (println x-pos "," y-pos)
 					 (.addPoint p x-pos y-pos)))
   	  (struct polygon color p)))	   							
 		  								
