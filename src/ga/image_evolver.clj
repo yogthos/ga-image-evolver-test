@@ -80,7 +80,6 @@
   (let [frame (JFrame.)   
         canvas (Canvas.)        
         image (img/load-image (.getSelectedFile file-chooser))       
-        ;image1 (img/load-image (java.io.File. "evileye.jpg"))          
         image-width (.getWidth image)
         image-height (.getHeight image)  
         pop-size 100
