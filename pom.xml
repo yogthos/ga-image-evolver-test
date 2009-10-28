@@ -29,6 +29,29 @@
                     </execution>
                 </executions>
             </plugin>
+            
+            <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+          <manifest>
+            <mainClass>ga.image_evolver</mainClass>
+          </manifest>
+        </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id> <!-- this is used for inheritance merges -->
+            <phase>package</phase> <!-- append to the packaging phase. -->
+            <goals>
+              <goal>single</goal> <!-- goals == mojos -->
+            </goals>
+          </execution>
+        </executions>
+      </plugin>      
         </plugins>
     </build>
    <dependencies>

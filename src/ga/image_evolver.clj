@@ -4,9 +4,10 @@
   (:import
     (java.awt Color Canvas Polygon RenderingHints)    
     (java.io File)    
-    (javax.swing JFrame JPanel JFileChooser)))
+    (javax.swing JFrame JPanel JFileChooser))
+  (:gen-class ))
 
-(set! *warn-on-reflection* true)
+;(set! *warn-on-reflection* true)
 
 (defstruct polygon :color :shape)
 (defstruct image :width :height :polygons)
@@ -121,4 +122,4 @@
      )) 
      
 
-(-main nil)                         
+;(-main nil)                         
