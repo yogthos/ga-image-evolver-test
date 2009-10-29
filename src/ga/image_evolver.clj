@@ -81,8 +81,8 @@
         image (img/load-image (.getSelectedFile file-chooser))       
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 50
-        member-size 500
+        pop-size 10
+        member-size 100
         width (* 15 image-width)
         height (.getHeight image)
         mutator-struct (struct ga/mutator
@@ -108,7 +108,7 @@
          (.requestFocus))       
       
        (loop [population (ga/init-population mutator-struct image-width height pop-size member-size)] 
-          (let [ranked (vec (ga/rank population mutator-struct))]  
+          (let [ranked (ga/rank population mutator-struct)]  
             (dotimes [i (if (> pop-size 15) 15 pop-size)]           
               (img/draw canvas 
                         (paint (:polygons (:value @(get ranked i))) image-width image-height) 
@@ -117,7 +117,7 @@
               (img/draw-string canvas
                         (str (int (:fitness @(get ranked i))))
                         (+ (* i image-width) 10)
-                        10))              
+                        10))           
             (recur (ga/evolve ranked mutator-struct))))             
      )) 
      

@@ -26,7 +26,7 @@
         fitness (:fitness mutator)]
     (doseq [member population]
       (swap! member #(assoc %1 :fitness (fitness (:value %1) target))))     
-    (reverse (sort #(compare (:fitness @%1) (:fitness @%2)) population))))
+    (vec (reverse (sort #(compare (:fitness @%1) (:fitness @%2)) population)))))
 
 
 (defn- mate
@@ -45,10 +45,11 @@
   (mutate population mutator)
   (let [promote-size (/ (count population) 5)
         keep-size (- (/ (count population) 2) promote-size)
+        mate-size (- (count population) (+ promote-size keep-size))
         parts (split-at keep-size population)]
       (concat (first parts)
               (take promote-size (second parts))
-              (mate (vec (take (dec (+ keep-size promote-size)) population)) mutator))))
+              (mate (vec (take mate-size population)) mutator))))
 
 (defn init-population
   "creates a population using the generator function"
