@@ -16,63 +16,50 @@
       (persistent! pairs)
       (recur (conj! pairs [(first l1) (first l2)]) (rest l1) (rest l2)))))
 
-(defn- average-around [image px py]
-  (let [iterator (RandomIterFactory/create image nil)
-        width (.getWidth image)
-        height (.getHeight image)
-        base-size (if (< width height) width height)
-        sample-size 15        
-        x-min-tmp (- (* px base-size) sample-size)
-        x-max-tmp (+ (* px base-size) sample-size)
-        y-min-tmp (- (* py base-size) sample-size) 
-        y-max-tmp (+ (* py base-size) sample-size)        
-        x-min (if (neg? x-min-tmp) 0 x-min-tmp)
-        x-max (if (< x-max-tmp width) x-max-tmp width)
-        y-min (if (neg? y-min-tmp) 0 y-min-tmp)
-        y-max (if (< y-max-tmp height) y-max-tmp height)        
-        x-range (range x-min x-max)       
-        y-range (range y-min y-max)       
-        accum (to-array [0 0 0])
-        pixel (make-array (. Double TYPE) x-max)
-        num-pixels (* x-max y-max)]
-        
-        (doseq [x x-range]
-          (doseq [y y-range] 
-            (.getPixel iterator (int x) (int y) pixel)
-            (aset accum 0 (+ (aget accum 0) (aget pixel 0)))
-            (aset accum 1 (+ (aget accum 0) (aget pixel 1)))
-            (aset accum 2 (+ (aget accum 0) (aget pixel 2)))))
-            
-        (aset accum 0 (/ (aget accum 0) num-pixels))
-        (aset accum 1 (/ (aget accum 1) num-pixels))
-        (aset accum 2 (/ (aget accum 2) num-pixels))
-        
-        (Color. (int (aget accum 0)) (int (aget accum 1)) (int (aget accum 2)))))
-        
-(defn- get-signature [image]
-  (let [prop (vec (map float [(/ 1 10) (/ 3 10) (/ 5 10) (/ 7 10) (/ 9 10)])) 
-        sig (for [x (range 0 5)]
-              (for [y (range 0 5)] (average-around image (get prop x) (get prop y))))]        
-   sig))
+(defn- grab-pixels
+  "Returns an array containing the pixel values of image."
+  [image]
+  (let [w (.getWidth image)
+        h (.getHeight image)
+        pixels (make-array (Integer/TYPE) (* w h))]
+    (.grabPixels (PixelGrabber. image 0 0 w h pixels 0 w))
+    pixels))
 
-(defn- compare-pixels [p1 p2]
-  (let [r1 (.getRed p1)
-        g1 (.getGreen p1)
-        b1 (.getBlue p1)
-        r2 (.getRed p2)
-        g2 (.getGreen p2)
-        b2 (.getBlue p2)]
-        (Math/sqrt (+ (* (- r1 r2) (- r1 r2)) 
-                      (* (- g1 g2) (- g1 g2))
-                      (* (- b1 b2) (- b1 b2))))))
+(defn- compare-colors [pixel1 pixel2]
+  (let [color1 (Color. pixel1)
+        color2 (Color. pixel2)
+        dr (- (.getRed color1) (.getRed color2))
+        dg (- (.getGreen color1) (.getGreen color2))
+        db (- (.getBlue color1) (.getBlue color2))]
+     (* dr dr) (* dg dg) (* db db)))
 
-(defn- compare-colors [c1 c2]
-  (pmap #(compare-pixels (first %1) (second %1)) (zip c1 c2)))
+(defn cmp-img [image1 image2]
+    (let [pixels1 (grab-pixels image1)
+          pixels2 (grab-pixels image2)]
+      (loop [i (int 0)
+             lms (int 0)]
+        (if (> (inc i) (alength pixels1))
+          lms
+          (recur (unchecked-inc i) 
+                 (int (+ lms (compare-colors (aget pixels1 i) (aget pixels2 i)))))))))
 
-(defn calc-distance [image target]
-  (let [sig-target (get-signature target)
-        sig-image (get-signature image)]        
-        (reduce + (reduce concat (pmap #(compare-colors (first %1) (second %1)) (zip sig-image sig-target))))))       
+
+(comment
+(defn compare [image1 image2]
+    (let [pixels1 (grab-pixels image1)
+          pixels2 (grab-pixels image2)]
+      (loop [i (int 0)
+             lms (int 0)]
+        (if (> i (alength pixels1))
+          lms
+          (let [color1 (Color. (aget pixels1 i))
+                color2 (Color. (aget pixels2 i))
+                dr (- (.getRed color1) (.getRed color2))
+                dg (- (.getGreen color1) (.getGreen color2))
+                db (- (.getBlue color1) (.getBlue color2))]
+            (recur (unchecked-inc i) (int (+ lms (* dr dr) (* dg dg) (* db db)))))))))
+)
+
         
 (defn blend [bi1 bi2 weight]
   (let [width (.getWidth bi1)
@@ -121,24 +108,18 @@
         (.drawImage g image 0 0 nil)
         compatible))
 
-(defn draw-string [#^Canvas canvas #^String text x-offset y-offset]
-    (let [buffer (.getBufferStrategy canvas)        
-          g     (.getDrawGraphics buffer)]     
-      (try 
-        (doto g
-          (.setColor Color/green)
-          (.drawString text x-offset y-offset))           
-        (finally (.dispose g)))
-      (if (not (.contentsLost buffer))
-        (. buffer show))
-      (.. Toolkit (getDefaultToolkit) (sync))))
+(defn draw-image [#^Graphics g #^BufferedImage image x-offset y-offset]	
+	(.drawImage g image x-offset y-offset nil))           
 
-(defn draw [#^Canvas canvas #^BufferedImage image x-offset y-offset]
+(defn draw-string [#^Graphics g #^String text x-offset y-offset]
+   (doto g
+      (.setColor Color/green)
+      (.drawString text x-offset y-offset)))           
+
+(defn draw [#^Canvas canvas image x-offset y-offset draw-fn]
     (let [buffer (.getBufferStrategy canvas)        
           g     (.getDrawGraphics buffer)]     
-      (try 
-        (doto g
-          (.drawImage image x-offset y-offset nil))           
+      (try (draw-fn g image x-offset y-offset)
         (finally (.dispose g)))
       (if (not (.contentsLost buffer))
         (. buffer show))

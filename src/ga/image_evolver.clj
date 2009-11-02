@@ -52,9 +52,8 @@
                          (drop (/ (count polygons2) 2) polygons2))]
       (struct image (:width img1) (:height img1) polygons)))
 
-(defn image-fitness   
-  [image target]
-    (- 0 (img/calc-distance (paint (:polygons image) (:width image) (:height image)) target)))
+(defn image-fitness [image target]
+  (- 0 (img/cmp-img (paint (:polygons image) (:width image) (:height image)) target)))
 
 (defn image-mutator   
   ([img target threshold fitness]
@@ -81,8 +80,8 @@
         image (img/load-image (.getSelectedFile file-chooser))       
         image-width (.getWidth image)
         image-height (.getHeight image)  
-        pop-size 10
-        member-size 100
+        pop-size 15
+        member-size 300
         width (* 15 image-width)
         height (.getHeight image)
         mutator-struct (struct ga/mutator
@@ -109,17 +108,20 @@
       
        (loop [population (ga/init-population mutator-struct image-width height pop-size member-size)] 
           (let [ranked (ga/rank population mutator-struct)]  
-            (dotimes [i (if (> pop-size 15) 15 pop-size)]           
-              (img/draw canvas 
+            (when (< (:fitness @(first ranked)) 0)
+               (dotimes [i (if (> pop-size 15) 15 pop-size)]           
+                 (img/draw canvas 
                         (paint (:polygons (:value @(get ranked i))) image-width image-height) 
                         (* i image-width) 
-                        0)
-              (img/draw-string canvas
+                        0
+                        img/draw-image)
+                 (img/draw canvas
                         (str (int (:fitness @(get ranked i))))
                         (+ (* i image-width) 10)
-                        10))           
-            (recur (ga/evolve ranked mutator-struct))))             
+                        10
+                        img/draw-string))           
+               (recur (ga/evolve ranked mutator-struct)))))             
      )) 
      
 
-;(-main nil)                         
+(-main nil)                         
