@@ -1,27 +1,21 @@
 (ns ga.image-util
   (:import
-    (java.awt Canvas Graphics Dimension Color Polygon GraphicsEnvironment Transparency Toolkit)
+    (java.awt Canvas Graphics Graphics2D Dimension Color Polygon GraphicsEnvironment Transparency Toolkit)
     (java.awt.image BufferStrategy BufferedImage PixelGrabber WritableRaster)
     (javax.media.jai.iterator RandomIterFactory)
     (java.awt AlphaComposite Polygon RenderingHints)
-    (javax.imageio ImageIO)
-    (java.awt.image.renderable ParameterBlock))
-  (:gen-class))
+    java.awt.image.renderable.ParameterBlock
+    javax.imageio.ImageIO
+    java.io.File))
   
-(defn zip
-  "helper function which pairs values in two lists xs ys"
-  [xs ys]
-  (loop [pairs (transient []) l1 xs l2 ys]
-    (if (or (empty? l1) (empty? l2))
-      (persistent! pairs)
-      (recur (conj! pairs [(first l1) (first l2)]) (rest l1) (rest l2)))))
+(set! *warn-on-reflection* true)
 
 (defn- grab-pixels
   "Returns an array containing the pixel values of image."
-  [image]
+  [^BufferedImage image]
   (let [w (.getWidth image)
         h (.getHeight image)
-        pixels (make-array (Integer/TYPE) (* w h))]
+        pixels (int-array (* w h))]
     (.grabPixels (PixelGrabber. image 0 0 w h pixels 0 w))
     pixels))
 
@@ -33,9 +27,9 @@
         db (- (.getBlue color1) (.getBlue color2))]
      (* dr dr) (* dg dg) (* db db)))
 
-(defn cmp-img [image1 image2]
-    (let [pixels1 (grab-pixels image1)
-          pixels2 (grab-pixels image2)]
+(defn cmp-img [^BufferedImage image1 ^BufferedImage image2]
+    (let [^ints pixels1 (grab-pixels image1)
+          ^ints pixels2 (grab-pixels image2)]
       (loop [i (int 0)
              lms (int 0)]
         (if (> (inc i) (alength pixels1))
@@ -45,7 +39,7 @@
 
 
 (comment
-(defn compare [image1 image2]
+(defn compare [^BufferedImage image1 ^BufferedImage image2]
     (let [pixels1 (grab-pixels image1)
           pixels2 (grab-pixels image2)]
       (loop [i (int 0)
@@ -61,13 +55,13 @@
 )
 
         
-(defn blend [bi1 bi2 weight]
+(defn blend [^BufferedImage bi1 ^BufferedImage bi2 weight]
   (let [width (.getWidth bi1)
         height (.getHeight bi1)
         bi3 (BufferedImage. width height BufferedImage/TYPE_INT_RGB)
-        rgbim1 (make-array (. Integer TYPE) width)
-        rgbim2 (make-array (. Integer TYPE) width)
-        rgbim3 (make-array (. Integer TYPE) width)]
+        ^ints rgbim1 (int-array  width)
+        ^ints rgbim2 (int-array  width)
+        ^ints rgbim3 (int-array  width)]
         
         (doseq [row (range 0 height)]
           (.getRGB bi1 0 row width 1 rgbim1 0 width)
@@ -100,23 +94,23 @@
                 height
                 (Transparency/BITMASK)))))
 
-(defn load-image [file]
-  (let [image (ImageIO/read file)
+(defn load-image [^File file]
+  (let [^BufferedImage image (ImageIO/read file)
         ge (GraphicsEnvironment/getLocalGraphicsEnvironment)
-        compatible (get-compatible (.getWidth image) (.getHeight image))
+        ^BufferedImage compatible (get-compatible (.getWidth image) (.getHeight image))
         g (.getGraphics compatible)]
         (.drawImage g image 0 0 nil)
         compatible))
 
-(defn draw-image [#^Graphics g #^BufferedImage image x-offset y-offset]	
+(defn draw-image [^Graphics g ^BufferedImage image x-offset y-offset]	
 	(.drawImage g image x-offset y-offset nil))           
 
-(defn draw-string [#^Graphics g #^String text x-offset y-offset]
+(defn draw-string [^Graphics g ^String text x-offset y-offset]
    (doto g
       (.setColor Color/green)
-      (.drawString text x-offset y-offset)))           
+      (.drawString text (int x-offset) (int y-offset))))           
 
-(defn draw [#^Canvas canvas image x-offset y-offset draw-fn]
+(defn draw [^Canvas canvas image x-offset y-offset draw-fn]
     (let [buffer (.getBufferStrategy canvas)        
           g     (.getDrawGraphics buffer)]     
       (try (draw-fn g image x-offset y-offset)
@@ -128,10 +122,10 @@
 (defn get-blank-image [width height]
   (BufferedImage. width height BufferedImage/TYPE_INT_ARGB))
   
-(defn get-image-with-opacity [image opacity]
-  (let [new-image (get-blank-image (.getWidth image) (.getHeight image))
-            g     (.createGraphics new-image)
-            ac    (AlphaComposite/getInstance AlphaComposite/SRC_OVER opacity)]
+(defn get-image-with-opacity [^BufferedImage image opacity]
+  (let [^BufferedImage new-image (get-blank-image (.getWidth image) (.getHeight image))
+            ^Graphics2D g          (.createGraphics new-image)
+            ^AlphaComposite ac   (AlphaComposite/getInstance AlphaComposite/SRC_OVER opacity)]
           (try  
             (doto g
               (.setComposite ac)
@@ -142,4 +136,3 @@
 
 (defn get-random-color []
   (Color. (float (rand)) (float (rand)) (float (rand)) (float (rand))))                    
-          
