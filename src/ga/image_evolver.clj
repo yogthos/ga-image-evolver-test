@@ -1,17 +1,11 @@
 (ns ga.image-evolver
-  (:require (ga [main :as ga])
-            (ga [image-util :as img]))  
-  (:import
-    (java.awt Color Canvas Polygon RenderingHints)    
-    (java.io File)    
-    (javax.swing JFrame JPanel JFileChooser))
-  (:gen-class ))
+  (:require [ga.image-util :as img])  
+  (:import [java.awt Color Canvas Graphics2D Polygon RenderingHints]
+           java.awt.image.BufferedImage
+           [javax.swing JFrame JPanel JFileChooser]    
+           java.io.File))
 
 ;(set! *warn-on-reflection* true)
-
-(defstruct polygon :color :shape)
-(defstruct image :width :height :polygons)
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;helper functions;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -23,16 +17,18 @@
 
 (defn gen-polygon [w h]
   (let [color (img/get-random-color)
-        p (Polygon.)]
+        p (Polygon.)
+        x-start (rand-int w)
+        y-start (rand-int h)]
       (dotimes [i (rand-in-range 3 5)]
-        (let [x-pos (rand-int w)
-              y-pos (rand-int h)]
+        (let [x-pos ((if (< (rand) 0.5) + -) x-start (rand-int 20))
+              y-pos ((if (< (rand) 0.5) + -) y-start (rand-int 20))]
            (.addPoint p x-pos y-pos)))
-      (struct polygon color p)))                  
+      {:color color :shape p}))                  
                       
 (defn paint [polygons width height]
-  (let [image (img/get-blank-image width height)
-        g     (.createGraphics image)]
+  (let [^BufferedImage image (img/get-blank-image width height)
+        ^Graphics2D    g     (.createGraphics image)]
     
     (doto g       
         (.setRenderingHint RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
@@ -43,32 +39,72 @@
         (.fillPolygon g (:shape polygon)))
     image))
                                           
-;;;;;;;;;;;;;;;;;;;;;;;image specific functions;;;;;;;;;;;;;;;;;;;;;;;
-            
-(defn image-mater [img1 img2]       
-  (let [polygons1 (:polygons img1)
-        polygons2 (:polygons img2)
-        polygons (into (into [] (take (/ (count polygons1) 2) polygons1))
-                         (drop (/ (count polygons2) 2) polygons2))]
-      (struct image (:width img1) (:height img1) polygons)))
+;;;;;;;;;;;;;;;;;;;;;;;ga functions;;;;;;;;;;;;;;;;;;;;;;;
+(defn rand-in-range
+  "generates a random value within the given range"
+  [min max]
+  (int (+ (* (Math/random) (inc (- max min))) min)))
 
-(defn image-fitness [image target]
-  (- 0 (img/cmp-img (paint (:polygons image) (:width image) (:height image)) target)))
+(defn mutate 
+  "randomly mutates values in members of the population using the mutator function"
+  [population mutator threshold fitness target]
+  (for [member population]
+    (if (< (rand) threshold)
+      (let [value (map mutator (:value member))]
+        {:value value
+         :fitness (fitness value target)})
+      member)))
 
-(defn image-mutator   
-  ([img target threshold fitness]
-    (let [w (:width img)
-          h (:height img)
-          polys (:polygons img)
-          size (count polys)] 
-          (struct image w h
-	          (persistent! (reduce #(conj! %1 (if (< (rand) threshold) (gen-polygon w h) %2))                               
-  	        	(transient []) (:polygons img))))))
-  ([w h member-size]
-    (struct image w h
-      (vec (for [i (range 0 member-size)] (gen-polygon w h))))))  
+(defn rank
+  "ranks the population by fitness"
+  [population]
+  (reverse (sort-by :fitness population)))
 
-(defn -main [args]  
+(defn update-vals
+  "randomly selects a value from either the first or the second memeber for each position,
+   preferring the first member, as the front of the population is more fit"
+  [fitness target {v1 :value} {v2 :value}]  
+  (let [value (map #(if (> (rand) 0.3) %1 %2) v1 v2)]
+    {:value value :fitness (fitness value target)}))
+
+(defn mate
+  "splits the population in half and mates all the members"
+  [population fitness target]
+  (apply map 
+         (partial update-vals fitness target) 
+         (split-at (/ (count population) 2) population)))
+
+(defn evolve-step
+  "mutate the population, then promote top members and add mated members to the end"
+  [size population mutator threshold fitness target]
+  (let [mutated (rank (mutate population mutator threshold fitness target))        
+        promote-size (/ size 5)
+        keep-size (- (/ size 2) promote-size)
+        [xs ys] (split-at keep-size mutated)]
+    (concat xs (take promote-size ys) (mate mutated fitness target))))
+
+(defn gen-member
+  "generates a new member for the population"
+  [mutator fitness member-size target]
+  (let [value (take member-size (repeatedly #(mutator nil)))] 
+    {:value value :fitness (fitness value target)}))
+
+(defn init-population
+  "creates a new population"
+  [size member-size mutator fitness target]
+  (rank (take size (repeatedly #(gen-member mutator fitness member-size target)))))
+
+(defn evolve
+  "evolves the population until at least one member is fit"
+  [size member-size threshold mutator fitness target]
+  (loop [population (init-population size member-size mutator fitness target)]
+    (println (first population))
+    (if (zero? (:fitness (first population))) 
+      population 
+      (recur (evolve-step size population mutator threshold fitness target)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn -main [& args]  
 
      (def file-chooser (new JFileChooser))  
      (doto file-chooser  
@@ -79,22 +115,13 @@
         canvas (Canvas.)        
         image (img/load-image (.getSelectedFile file-chooser))       
         image-width (.getWidth image)
-        image-height (.getHeight image)  
-        pop-size 15
-        member-size 300
-        width (* 15 image-width)
-        height (.getHeight image)
-        mutator-struct (struct ga/mutator
-                        image-fitness
-                        image-mutator
-                        image-mater
-                        image
-                        0.05)]                  
+        image-height (.getHeight image)                  
+        width (* 5 image-width)]                  
                 
        (doto frame
          (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
          (.setTitle (str "Evolving " (.getName (.getSelectedFile file-chooser))))
-         (.setBounds 0,0,width height)
+         (.setBounds 0 0 width image-height)
          (.setResizable false)
          (.add canvas)
          (.setVisible true))
@@ -102,26 +129,29 @@
        (doto canvas
          (.createBufferStrategy 2)
          (.. (getBufferStrategy) (getDrawGraphics) (setColor Color/black))
-         (.. (getBufferStrategy) (getDrawGraphics) (fillRect 0 0 (.getWidth image) (.getHeight image)))
+         (.. (getBufferStrategy) (getDrawGraphics) (fillRect 0 0 image-width image-height))
          (.setVisible true)
          (.requestFocus))       
       
-       (loop [population (ga/init-population mutator-struct image-width height pop-size member-size)] 
-          (let [ranked (ga/rank population mutator-struct)]  
-            (when (< (:fitness @(first ranked)) 0)
-               (dotimes [i (if (> pop-size 15) 15 pop-size)]           
-                 (img/draw canvas 
-                        (paint (:polygons (:value @(get ranked i))) image-width image-height) 
-                        (* i image-width) 
-                        0
-                        img/draw-image)
-                 (img/draw canvas
-                        (str (int (:fitness @(get ranked i))))
-                        (+ (* i image-width) 10)
-                        10
-                        img/draw-string))           
-               (recur (ga/evolve ranked mutator-struct)))))             
-     )) 
-     
+       (let [size 200
+             polygons 500
+             threshold 0.05
+             mutator (fn [_] (gen-polygon image-width image-height))
+             fitness #(- 0 (img/cmp-img (paint %1 image-width image-height) %2))] 
+         (loop [population (init-population size polygons mutator fitness image)]
+           (dotimes [i (if (> size 5) 5 size)]           
+               (img/draw canvas 
+                         (paint (:value (first (drop i population))) image-width image-height) 
+                         (* i image-width) 
+                         0
+                         img/draw-image)
+               (img/draw canvas
+                         (str (int (:fitness (first (drop i population)))))
+                         (+ (* i image-width) 10)
+                         10
+                         img/draw-string))
+           (if (zero? (:fitness (first population))) 
+             population 
+             (recur (evolve-step size population mutator threshold fitness image))))))) 
 
-(-main nil)                         
+(-main)
