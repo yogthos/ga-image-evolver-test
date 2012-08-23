@@ -133,7 +133,7 @@
          (.setVisible true)
          (.requestFocus))       
       
-       (let [size 200
+       (let [size 1000
              polygons 500
              threshold 0.05
              mutator (fn [_] (gen-polygon image-width image-height))
