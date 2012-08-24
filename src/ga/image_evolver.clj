@@ -1,7 +1,8 @@
 (ns ga.image-evolver
   (:require [ga.image-util :as img])  
-  (:import [java.awt Color Canvas Graphics2D Polygon RenderingHints]
+  (:import [java.awt Color Canvas Graphics2D Polygon Rectangle RenderingHints]
            java.awt.image.BufferedImage
+           java.awt.geom.Ellipse2D$Double
            [javax.swing JFrame JPanel JFileChooser]    
            java.io.File))
 
@@ -14,17 +15,24 @@
   [min max]
     (float (+ (* (Math/random) (- max min)) min)))
 
+(defn rand-offset [i max]
+  ((if (< (rand) 0.5) + -) i (rand-int (/ max 5)))
+  #_(let [v ((if (< (rand) 0.5) + -) i (rand-int (/ max 3)))]
+    (if (< 0 v) 0 (if (> v (dec max)) (dec max) v))) )
 
-(defn gen-polygon [w h]
-  (let [color (img/get-random-color)
+
+(defn gen-shape [w h size]  
+  {:color (img/get-random-color)
+   :shape (new Ellipse2D$Double (rand w) (rand h) (rand 15) (rand 15))}
+  #_(let [color (img/get-random-color)
         p (Polygon.)
         x-start (rand-int w)
         y-start (rand-int h)]
-      (dotimes [i (rand-in-range 3 5)]
-        (let [x-pos ((if (< (rand) 0.5) + -) x-start (rand-int 20))
-              y-pos ((if (< (rand) 0.5) + -) y-start (rand-int 20))]
-           (.addPoint p x-pos y-pos)))
-      {:color color :shape p}))                  
+    (dotimes [i (rand-in-range 3 4)]
+      (let [x-pos (int (rand-offset x-start w))
+            y-pos (int (rand-offset y-start h))]
+        (.addPoint p x-pos y-pos)))
+    {:color color :shape p}))                  
                       
 (defn paint [polygons width height]
   (let [^BufferedImage image (img/get-blank-image width height)
@@ -36,7 +44,7 @@
         (.fillRect 0 0 width height))    
     (doseq [polygon polygons]       
         (.setColor g (:color polygon))
-        (.fillPolygon g (:shape polygon)))
+        (.fill g (:shape polygon)))
     image))
                                           
 ;;;;;;;;;;;;;;;;;;;;;;;ga functions;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,7 +58,7 @@
   [population mutator threshold fitness target]
   (for [member population]
     (if (< (rand) threshold)
-      (let [value (map mutator (:value member))]
+      (let [value (map (partial mutator (:fitness member)) (:value member))]
         {:value value
          :fitness (fitness value target)})
       member)))
@@ -64,7 +72,7 @@
   "randomly selects a value from either the first or the second memeber for each position,
    preferring the first member, as the front of the population is more fit"
   [fitness target {v1 :value} {v2 :value}]  
-  (let [value (map #(if (> (rand) 0.3) %1 %2) v1 v2)]
+  (let [value (map #(if (> (rand) 0.4) %1 %2) v1 v2)]
     {:value value :fitness (fitness value target)}))
 
 (defn mate
@@ -86,7 +94,7 @@
 (defn gen-member
   "generates a new member for the population"
   [mutator fitness member-size target]
-  (let [value (take member-size (repeatedly #(mutator nil)))] 
+  (let [value (take member-size (repeatedly #(mutator)))] 
     {:value value :fitness (fitness value target)}))
 
 (defn init-population
@@ -133,10 +141,12 @@
          (.setVisible true)
          (.requestFocus))       
       
-       (let [size 1000
+       (let [size 500
              polygons 500
              threshold 0.05
-             mutator (fn [_] (gen-polygon image-width image-height))
+             mutator (fn 
+                       ([] (gen-shape image-width image-height image-width))
+                       ([fitness shape] (gen-shape image-width image-height (/ fitness 10000000))))
              fitness #(- 0 (img/cmp-img (paint %1 image-width image-height) %2))] 
          (loop [population (init-population size polygons mutator fitness image)]
            (dotimes [i (if (> size 5) 5 size)]           
